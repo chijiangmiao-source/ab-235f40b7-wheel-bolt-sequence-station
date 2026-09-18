@@ -1,0 +1,10 @@
+{
+  "name": "wheel-station-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "轮毂复核工位页面（静态资源 + 到 API 的反向代理）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

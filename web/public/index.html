@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>轮毂复核工位</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main class="station">
+    <header class="station__header">
+      <h1>轮毂复核工位</h1>
+      <div class="station__meta">
+        <span id="session-label" class="session-label" hidden>会话编号：<code id="session-id"></code></span>
+        <button id="new-session-btn" class="btn btn--ghost" type="button" hidden>新建会话</button>
+      </div>
+    </header>
+
+    <!-- 开始面板 -->
+    <section id="start-panel" class="panel">
+      <p class="panel__hint">每个新会话将按固定顺序复核六颗螺栓：<strong>A1 → B2 → A3 → B1 → A2 → B3</strong></p>
+      <p class="panel__hint">合格扭矩范围：<strong>4200 – 4800 cN·m（含边界）</strong></p>
+      <button id="start-btn" class="btn btn--primary btn--large" type="button">开始新会话</button>
+    </section>
+
+    <!-- 作业面板 -->
+    <section id="work-panel" class="panel" hidden>
+      <ol id="bolt-progress" class="progress" aria-label="六颗螺栓复核进度"></ol>
+
+      <div id="current-bolt" class="current-bolt">
+        <div class="current-bolt__seq">第 <span id="current-seq"></span> / 6 颗</div>
+        <div class="current-bolt__position" id="current-position"></div>
+        <label class="torque-field">
+          <span class="torque-field__label">实测扭矩（cN·m，整数）</span>
+          <input id="torque-input" type="number" inputmode="numeric" step="1"
+                 placeholder="4200 – 4800" autocomplete="off" />
+        </label>
+        <div class="actions">
+          <button id="submit-btn" class="btn btn--primary btn--large" type="button">提交确认</button>
+          <button id="retry-btn" class="btn btn--secondary" type="button" hidden>网络重试（相同载荷与幂等键）</button>
+        </div>
+      </div>
+
+      <!-- 完成面板 -->
+      <div id="complete-panel" class="complete" hidden>
+        <div class="complete__mark">✓</div>
+        <h2>轮毂复核完成</h2>
+        <p>六颗螺栓均已有效确认，顺序：A1、B2、A3、B1、A2、B3。</p>
+        <ul id="complete-list" class="complete__list"></ul>
+      </div>
+
+      <div id="banner" class="banner" role="status" aria-live="polite" hidden></div>
+
+      <details class="eventlog">
+        <summary>服务器确认事件（权威记录）</summary>
+        <table>
+          <thead><tr><th>#</th><th>序号</th><th>位置</th><th>扭矩</th><th>结果</th><th>原因</th></tr></thead>
+          <tbody id="eventlog-body"></tbody>
+        </table>
+      </details>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

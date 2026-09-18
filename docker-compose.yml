@@ -1,0 +1,86 @@
+# 轮毂复核工位：本地一键联调。
+#
+# 宿主端口可用环境变量覆盖：
+#   WEB_PORT（默认 8080）、API_PORT（默认 8081）
+# 例：WEB_PORT=18080 API_PORT=18081 docker compose up --build
+#
+# 一次性验收：
+#   docker compose up --build --abort-on-container-exit --exit-code-from verify
+# verify 容器会对真实运行中的 web/api/postgres 跑协议级与真实页面（Chromium）用例，
+# 退出码 0 表示验收通过，随后可用 Ctrl-C 结束其余服务。
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: station
+      POSTGRES_PASSWORD: station
+      POSTGRES_DB: wheel_station
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U station -d wheel_station"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  api:
+    build: ./api
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: station
+      PGPASSWORD: station
+      PGDATABASE: wheel_station
+      PORT: "8080"
+    ports:
+      - "${API_PORT:-8081}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8080/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  web:
+    build: ./web
+    environment:
+      PORT: "8080"
+      API_ORIGIN: http://api:8080
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8080/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # 一次性验收服务：对真实栈执行自动化用例（协议 + 真实页面操作），结束即退出。
+  verify:
+    build:
+      context: ./verify
+      dockerfile: Dockerfile
+    environment:
+      API_BASE: http://api:8080
+      WEB_BASE: http://web:8080
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: station
+      PGPASSWORD: station
+      PGDATABASE: wheel_station
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  pgdata:

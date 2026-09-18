@@ -1,0 +1,13 @@
+{
+  "name": "wheel-station-verify",
+  "version": "1.0.0",
+  "private": true,
+  "description": "一次性验收：协议级用例 + 真实页面（Chromium）操作 + 数据库不可变校验",
+  "scripts": {
+    "test": "node --test tests/protocol.test.js tests/page.test.js"
+  },
+  "dependencies": {
+    "pg": "^8.13.1",
+    "playwright": "1.49.0"
+  }
+}
