@@ -1,0 +1,13 @@
+{
+  "name": "hub-recheck-verify",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "轮毂复核工位一次性验收：API 协议用例 + 真实页面操作用例",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "dependencies": {
+    "@playwright/test": "1.48.2"
+  }
+}
