@@ -86,7 +86,7 @@ async function handleConfirm(client, payload) {
 
   // 1) 幂等命中：键相同且载荷完全相同 -> 返回原确认；键相同载荷不同 -> 冲突。
   const existing = await client.query(
-    `SELECT request_hash, response_json
+    `SELECT request_hash, http_status, response_json
        FROM idempotency_records
       WHERE session_id = $1 AND idempotency_key = $2`,
     [sessionId, idemKey],
@@ -106,7 +106,13 @@ async function handleConfirm(client, payload) {
         persistEvent: false,
       };
     }
-    return { httpStatus: 200, body: rec.response_json, replay: true, persistEvent: false };
+    // 同键同载荷：连首次的 HTTP 状态码一起原样回放（接受 200，拒绝则回放 409/422 等）。
+    return {
+      httpStatus: rec.http_status == null ? 200 : rec.http_status,
+      body: rec.response_json,
+      replay: true,
+      persistEvent: false,
+    };
   }
 
   // 2) 锁定会话行并读取权威期待序号（SELECT FOR UPDATE 串行化并发提交）。
@@ -224,9 +230,9 @@ async function handleConfirm(client, payload) {
   // 5) 登记幂等记录（响应原文回放）。冲突行的缺失由唯一约束兜底并发竞态。
   try {
     await client.query(
-      `INSERT INTO idempotency_records (session_id, idempotency_key, request_hash, event_id, response_json)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [sessionId, idemKey, hash, eventId, JSON.stringify(body)],
+      `INSERT INTO idempotency_records (session_id, idempotency_key, request_hash, event_id, http_status, response_json)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [sessionId, idemKey, hash, eventId, statusCode, JSON.stringify(body)],
     );
   } catch (err) {
     if (err.code === '23505') {

@@ -158,14 +158,13 @@ function createServer(pool) {
 
   async function replayIdempotentResult(usePool, payload) {
     const res = await usePool.query(
-      'SELECT request_hash, response_json FROM idempotency_records WHERE session_id = $1 AND idempotency_key = $2',
+      'SELECT request_hash, http_status, response_json FROM idempotency_records WHERE session_id = $1 AND idempotency_key = $2',
       [payload.sessionId, payload.idemKey],
     );
     if (res.rows.length === 0) {
       throw new HttpError(409, REASON.IDEMPOTENCY_CONFLICT, '并发冲突，请重试');
     }
-    const samePayload = res.rows[0].request_hash === payloadHash(payload);
-    if (!samePayload) {
+    if (res.rows[0].request_hash !== payloadHash(payload)) {
       return {
         statusCode: 409,
         body: {
@@ -177,7 +176,11 @@ function createServer(pool) {
         },
       };
     }
-    return { statusCode: 200, body: res.rows[0].response_json, replay: true };
+    return {
+      statusCode: res.rows[0].http_status == null ? 200 : res.rows[0].http_status,
+      body: res.rows[0].response_json,
+      replay: true,
+    };
   }
 
   const server = http.createServer(async (req, res) => {

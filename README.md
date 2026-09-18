@@ -71,7 +71,7 @@ docker compose up --build --abort-on-container-exit --exit-code-from verify
 | 序号 > 期待序号（越序） | 409 | `out_of_order_seq` | 否 |
 | 位置码与期待位置不符 | 422 | `position_mismatch` | 否 |
 | 扭矩不在 4200–4800（含边界） | 422 | `torque_out_of_range` | 否 |
-| 同幂等键、载荷完全相同的重试 | 200 | 返回**原确认**，响应头 `x-idempotent-replay: true` | 否（不重复推进） |
+| 同幂等键、载荷完全相同的重试 | 原状态码 | 返回**原确认**（含原始状态码与响应体，拒绝请求也原样回放），响应头 `x-idempotent-replay: true` | 否（不重复推进） |
 | 同幂等键但载荷不同 | 409 | `idempotency_conflict` | 否 |
 | 会话不存在 | 404 | `session_not_found` | — |
 | 字段缺失/类型错误 | 400 | `validation_error` | 否 |
@@ -104,7 +104,7 @@ docker compose up --build --abort-on-container-exit --exit-code-from verify
 sessions(id, expected_seq, status, ...)
 confirmation_events(id, session_id, seq, position, torque,
                     idempotency_key, accepted, reason_code, created_at)
-idempotency_records((session_id, idempotency_key) PK, request_hash, event_id, response_json)
+idempotency_records((session_id, idempotency_key) PK, request_hash, event_id, http_status, response_json)
 ```
 
 - 每次提交（接受或拒绝）都向 `confirmation_events` 追加一行；被拒绝事件带 `reason_code`。

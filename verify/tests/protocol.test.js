@@ -170,6 +170,39 @@ test('同一幂等键与完全相同载荷重试：返回原确认，不新增�
   assert.equal(after.body.events.filter((e) => e.accepted).length, 1);
 });
 
+test('被拒绝载荷的同键同载荷重试：原样回放拒绝状态码与响应，不新增事件、不推进', async () => {
+  const sid = (await createSession()).session_id;
+  const key = idemKey('rejected-replay');
+  const payload = { session_id: sid, seq: 1, position: 'A1', torque: 9000, idempotency_key: key };
+
+  const first = await api('POST', '/api/confirmations', payload);
+  assert.equal(first.status, 422);
+  assert.equal(first.replay, false);
+  assert.equal(first.body.reason, 'torque_out_of_range');
+
+  const again = await api('POST', '/api/confirmations', payload);
+  assert.equal(again.status, 422, '回放必须保留原始 422 状态码');
+  assert.equal(again.replay, true);
+  assert.deepEqual(again.body, first.body, '回放响应体须与首次拒绝完全一致');
+
+  // 迟到拒绝（stale_seq）同样原样回放
+  await confirm(sid, 1, 'A1', GOOD, idemKey());
+  const staleKey = idemKey('stale-replay');
+  const stalePayload = { session_id: sid, seq: 1, position: 'A1', torque: GOOD, idempotency_key: staleKey };
+  const staleFirst = await api('POST', '/api/confirmations', stalePayload);
+  assert.equal(staleFirst.status, 409);
+  assert.equal(staleFirst.body.reason, 'stale_seq');
+  const staleAgain = await api('POST', '/api/confirmations', stalePayload);
+  assert.equal(staleAgain.status, 409);
+  assert.equal(staleAgain.replay, true);
+  assert.deepEqual(staleAgain.body, staleFirst.body);
+
+  const s = await api('GET', `/api/sessions/${sid}`);
+  assert.equal(s.body.expected_seq, 2, '拒绝与回放均不推进');
+  assert.equal(s.body.events.filter((e) => e.accepted).length, 1);
+  assert.equal(s.body.events.length, 3, '两次拒绝各留一条事件，回放不新增');
+});
+
 test('同一幂等键但载荷不同：409 冲突，不推进；换新键后可正常提交', async () => {
   const sid = (await createSession()).session_id;
   const key = idemKey('conflict');

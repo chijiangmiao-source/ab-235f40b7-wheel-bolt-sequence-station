@@ -37,10 +37,14 @@ CREATE TABLE IF NOT EXISTS idempotency_records (
   idempotency_key TEXT NOT NULL,
   request_hash    TEXT NOT NULL,
   event_id        BIGINT NOT NULL REFERENCES confirmation_events(id),
+  http_status     INTEGER NOT NULL,
   response_json   JSONB NOT NULL,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (session_id, idempotency_key)
 );
+
+-- 兼容在旧版本库上的原地升级（验收环境为全新卷，正常不会走到）。
+ALTER TABLE idempotency_records ADD COLUMN IF NOT EXISTS http_status INTEGER;
 
 CREATE OR REPLACE FUNCTION forbid_append_only_mutation()
 RETURNS trigger LANGUAGE plpgsql AS $$
